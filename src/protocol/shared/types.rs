@@ -4,7 +4,7 @@ use super::constant::MAX_PACKET_SIZE;
 
 pub type PacketData = [u8; MAX_PACKET_SIZE];
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 
 pub enum PacketType {
     HELLOCLIENT,
@@ -27,11 +27,11 @@ impl Packet {
         return Self { packet_type, data };
     }
 
-    pub fn packet_type(self: Self) -> PacketType {
-        self.packet_type
+    pub fn packet_type(self: &Self) -> PacketType {
+        self.packet_type.clone()
     }
 
-    pub fn data(self: Self) -> PacketData {
+    pub fn data(self: &Self) -> PacketData {
         self.data
     }
 }

@@ -5,14 +5,15 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 use crate::cypher::enigma;
-use crate::keys_generator::keys::PublicKey;
+use crate::keys_generator::keys::{PrivateKey, PublicKey};
 use crate::protocol::shared::constant::MAX_PACKET_SIZE;
 use crate::protocol::shared::types::PacketData;
 
+use super::shared::constant::{KO_BYTES, MASTER_KEY_SIZE, OK_BYTES};
 use super::shared::types::{Packet, PacketType};
 
 fn send_hello(stream: &mut TcpStream) -> std::io::Result<Packet> {
-    let mut rng = rand::thread_rng();
+    let mut rng: ThreadRng = rand::thread_rng();
     let mut data: PacketData = [0; MAX_PACKET_SIZE];
     data.copy_from_slice(
         (0..12)
@@ -30,19 +31,42 @@ fn send_crypted_public_key(
     pub_key: &PublicKey,
     other_pub_key: &PublicKey,
 ) -> std::io::Result<Packet> {
-    let mut data: PacketData = [0; MAX_PACKET_SIZE];
     let b_pub_key: Vec<u8> = serde_cbor::to_vec(&pub_key).expect("Error while formatting data...");
-    data.copy_from_slice(&b_pub_key);
+    let mut data: PacketData = [0; MAX_PACKET_SIZE];
     let crypted_key: Vec<u8> = enigma(
         &b_pub_key,
         other_pub_key.encryption_value(),
         other_pub_key.key_len(),
     );
+    data.copy_from_slice(&crypted_key);
     let buffer: Packet = Packet::new(PacketType::SHARINGCRYPTEDPUBKEY, data);
-    serde_cbor::to_writer(stream, &crypted_key).expect("Failed to send data to client...");
+    serde_cbor::to_writer(stream, &buffer).expect("Failed to send data to client...");
     Ok(buffer)
 }
 
+fn validate_handshake(
+    stream: &mut TcpStream,
+    password_received: &[u8; MASTER_KEY_SIZE],
+    real_password: &[u8; MASTER_KEY_SIZE],
+    private_key: &PrivateKey,
+) -> std::io::Result<Packet> {
+    let password_received = Vec::from(password_received);
+    let plain_password: Vec<u8> = enigma(
+        &Vec::from(password_received),
+        private_key.decryption_value(),
+        private_key.key_len(),
+    );
+    let mut data: PacketData = [0; MAX_PACKET_SIZE];
+    let buffer: Packet;
+    if plain_password == Vec::from(real_password) {
+        data.copy_from_slice(OK_BYTES);
+    } else {
+        data.copy_from_slice(KO_BYTES);
+    }
+    buffer = Packet::new(PacketType::HANDSHAKEVALIDATED, data);
+    serde_cbor::to_writer(stream, &buffer).expect("Failed to send data to client...");
+    Ok(buffer)
+}
 
 fn handshake(stream: &mut TcpStream) {}
 
