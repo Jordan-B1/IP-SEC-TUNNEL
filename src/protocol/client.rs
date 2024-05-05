@@ -1,11 +1,8 @@
 use crate::cypher::enigma;
 use crate::keys_generator::keys::{generate_keys, PrivateKey, PublicKey};
 use crate::protocol::shared::constant::{CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, MAX_PACKET_SIZE, OK_BYTES};
-use core::slice;
 use rand::rngs::ThreadRng;
 use rand::Rng;
-use serde::Serialize;
-use serde_bytes;
 use std::io::{self, Error, Read, Write};
 use std::net::TcpStream;
 
@@ -78,11 +75,11 @@ fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> std::io::Result<Packe
     }
 }
 
-fn handshake_suceed(stream: &mut TcpStream) -> std::io::Result<bool>
+fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool>
 {
     let buffer: Packet = serde_cbor::from_reader(stream).expect("Invalid data received from server...");
     if buffer.packet_type() != PacketType::HANDSHAKEVALIDATED {
-       return  Err(Error::other("Wrong packet type"))
+       return  Err(Error::other("Wrong packet type"));
     }
     match &buffer.data()[0..2] {
         OK_BYTES => Ok(true),
@@ -110,7 +107,7 @@ fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey)
         .expect("Invalid data, expected a public key!");
     let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()[0..MASTER_KEY_SIZE].try_into().unwrap();
     send_cyphered_master_password(stream, &server_key, &master_password)?;
-    match handshake_suceed(stream) {
+    match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),
         Ok(false) => Err(Error::other("Handshake went wrong :(")),
         Err(x) => Err(x),

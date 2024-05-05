@@ -8,7 +8,7 @@ C -Hello-> S
 C <-Hello- S
 C -PubKey-> S
 C <CryptedPubKey- S
-C -CryptedOk> S
+C -CryptedMasterPassword> S
 C <Ok/KO- S
 
 
