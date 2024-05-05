@@ -1,6 +1,8 @@
 use crate::cypher::enigma;
 use crate::keys_generator::keys::{generate_keys, PrivateKey, PublicKey};
-use crate::protocol::shared::constant::{CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, MAX_PACKET_SIZE, OK_BYTES};
+use crate::protocol::shared::constant::{
+    CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, MAX_PACKET_SIZE, OK_BYTES,
+};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use std::io::{self, Error, Read, Write};
@@ -75,23 +77,23 @@ fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> std::io::Result<Packe
     }
 }
 
-fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool>
-{
-    let buffer: Packet = serde_cbor::from_reader(stream).expect("Invalid data received from server...");
+fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool> {
+    let buffer: Packet =
+        serde_cbor::from_reader(stream).expect("Invalid data received from server...");
     if buffer.packet_type() != PacketType::HANDSHAKEVALIDATED {
-       return  Err(Error::other("Wrong packet type"));
+        return Err(Error::other("Wrong packet type"));
     }
     match &buffer.data()[0..2] {
         OK_BYTES => Ok(true),
         KO_BYTES => Ok(false),
-        _ => Err(Error::other("Unexpected value!"))
+        _ => Err(Error::other("Unexpected value!")),
     }
 }
 
 fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey), PublicKey)> {
     let keys = generate_keys();
     let client_hello = send_hello(stream).unwrap().data();
-    let mut client_hello_bytes: [u8; CLIENT_MASTER_KEY_SIZE] = [0; CLIENT_MASTER_KEY_SIZE]; 
+    let mut client_hello_bytes: [u8; CLIENT_MASTER_KEY_SIZE] = [0; CLIENT_MASTER_KEY_SIZE];
     client_hello_bytes.copy_from_slice(&client_hello);
     let server_hello_bytes = read_server_hello(stream)?;
     send_public_key(stream, &keys.0)?;
@@ -105,7 +107,10 @@ fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey)
     );
     let server_key: PublicKey = serde_cbor::from_slice(cyphered_server_key.as_slice())
         .expect("Invalid data, expected a public key!");
-    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()[0..MASTER_KEY_SIZE].try_into().unwrap();
+    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()
+        [0..MASTER_KEY_SIZE]
+        .try_into()
+        .unwrap();
     send_cyphered_master_password(stream, &server_key, &master_password)?;
     match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),

@@ -1,8 +1,8 @@
 use std::env;
 
+mod cypher;
 mod keys_generator;
 mod protocol;
-mod cypher;
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();

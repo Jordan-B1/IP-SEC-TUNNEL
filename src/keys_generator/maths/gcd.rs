@@ -1,5 +1,4 @@
-pub fn compute_gcd(a: usize, b: usize) -> usize
-{
+pub fn compute_gcd(a: usize, b: usize) -> usize {
     let greatest: usize = std::cmp::max(a, b);
     let lowest: usize = std::cmp::min(a, b);
     let left: usize = greatest % lowest;

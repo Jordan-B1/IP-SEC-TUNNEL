@@ -80,19 +80,20 @@ fn read_client_hello(stream: &mut TcpStream) -> std::io::Result<[u8; CLIENT_MAST
     }
 }
 
-fn read_client_public_key(stream: &mut TcpStream) -> std::io::Result<PublicKey>
-{
-    let buffer: Packet = serde_cbor::from_reader(stream).expect("Invalid data received from client...");
+fn read_client_public_key(stream: &mut TcpStream) -> std::io::Result<PublicKey> {
+    let buffer: Packet =
+        serde_cbor::from_reader(stream).expect("Invalid data received from client...");
     if buffer.packet_type() != PacketType::SHARINGPUBKEY {
         return Err(Error::other("Wrong packet type"));
     }
-    let key: PublicKey = serde_cbor::from_slice(&buffer.data()).expect("Invalid data received from client...");
+    let key: PublicKey =
+        serde_cbor::from_slice(&buffer.data()).expect("Invalid data received from client...");
     Ok(key)
 }
 
-fn read_cyphered_password(stream: &mut TcpStream) -> std::io::Result<[u8; MASTER_KEY_SIZE]>
-{
-    let buffer: Packet = serde_cbor::from_reader(stream).expect("Invalid data received from client...");
+fn read_cyphered_password(stream: &mut TcpStream) -> std::io::Result<[u8; MASTER_KEY_SIZE]> {
+    let buffer: Packet =
+        serde_cbor::from_reader(stream).expect("Invalid data received from client...");
     if buffer.packet_type() != PacketType::KEYSVALIDATED {
         return Err(Error::other("Wrong packet type"));
     }
@@ -106,11 +107,15 @@ fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey)
     let server_hello = send_hello(stream).unwrap().data();
     let mut server_hello_bytes: [u8; SERVER_MASTER_KEY_SIZE] = [0; SERVER_MASTER_KEY_SIZE];
     server_hello_bytes.copy_from_slice(&server_hello);
-    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()[0..MASTER_KEY_SIZE].try_into().unwrap();
+    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()
+        [0..MASTER_KEY_SIZE]
+        .try_into()
+        .unwrap();
     let client_public_key: PublicKey = read_client_public_key(stream)?;
     send_crypted_public_key(stream, &keys.0, &client_public_key)?;
     let received_master_password = read_cyphered_password(stream)?;
-    let handshake_result: [u8; 1024] = validate_handshake(stream, &received_master_password, &master_password, &keys.1)?.data();
+    let handshake_result: [u8; 1024] =
+        validate_handshake(stream, &received_master_password, &master_password, &keys.1)?.data();
     if handshake_result == OK_BYTES {
         return Ok((keys, client_public_key));
     } else if handshake_result == KO_BYTES {
