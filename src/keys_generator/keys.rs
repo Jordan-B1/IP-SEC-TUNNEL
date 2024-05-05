@@ -23,28 +23,28 @@ impl PrivateKey {
     }
 
     pub fn key_len(self: &Self) -> usize {
-        return self.key_len;
+        self.key_len
     }
 
     pub fn decryption_value(self: &Self) -> usize {
-        return self.decryption_value;
+        self.decryption_value
     }
 }
 
 impl PublicKey {
     pub fn new(encryption_value: usize, key_len: usize) -> Self {
-        return PublicKey {
+        PublicKey {
             encryption_value,
             key_len,
-        };
+        }
     }
 
     pub fn key_len(self: &Self) -> usize {
-        return self.key_len;
+        self.key_len
     }
 
     pub fn encryption_value(self: &Self) -> usize {
-        return self.encryption_value;
+        self.encryption_value
     }
 }
 
@@ -75,12 +75,12 @@ fn generate_base() -> PrimeBase {
             .unwrap()
             .1) as usize;
     }
-    return PrimeBase { p, q };
+    PrimeBase { p, q }
 }
 
 pub fn generate_keys() -> (PublicKey, PrivateKey) {
     let base = generate_base();
     let public_key = generate_public_key(&base);
     let private_key = generate_private_key(&public_key.0, public_key.1, base.q * base.p);
-    return (public_key.0, private_key);
+    (public_key.0, private_key)
 }
