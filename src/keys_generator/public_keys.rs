@@ -1,20 +1,21 @@
-use crate::keys_generator::maths::gcd;
+use num_integer::Integer;
+use num_traits::ToPrimitive;
 
 use super::keys::{PrimeBase, PublicKey};
 
-const E_VALUES: [usize; 4] = [3, 5, 17, 65537];
-
 fn generate_totient(base: &PrimeBase) -> usize {
-    return (base.p * base.q) / gcd::compute_gcd(base.p, base.q);
+    return (base.p - 1) * (base.q - 1);
 }
 
 pub fn generate_public_key(base: &PrimeBase) -> (PublicKey, usize) {
-    let r = generate_totient(base);
-    let e = std::cmp::Reverse(E_VALUES)
-        .0
-        .iter()
-        .position(|&a| a < r)
-        .unwrap();
-
-    return (PublicKey::new(E_VALUES[e], base.p * base.q), r);
+    let r: usize = generate_totient(base);
+    let mut e: usize = 2;
+    while e < r {
+        if e.gcd(&r) == 1 {
+            break;
+        }
+        e += 1;
+    }
+    let e: usize = e.to_usize().expect("Failed to format data in key creation");
+    return (PublicKey::new(e, base.modulus), r);
 }

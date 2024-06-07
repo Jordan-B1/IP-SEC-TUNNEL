@@ -5,85 +5,77 @@ use crate::protocol::shared::constant::{
 };
 use rand::rngs::ThreadRng;
 use rand::Rng;
+use serde::Deserialize;
 use std::io::{self, Error, Read, Write};
 use std::net::TcpStream;
 
 use super::shared::constant::SERVER_MASTER_KEY_SIZE;
-use super::shared::types::{Packet, PacketData, PacketType};
+use super::shared::types::{
+    HandshakeValidatedRequest, HelloClientRequest, HelloServerRequest, KeysValidatedRequest,
+    SharingCryptedPubKeyRequest, SharingPubKeyRequest,
+};
 
-fn send_hello(stream: &mut TcpStream) -> std::io::Result<Packet> {
+fn send_hello(stream: &mut TcpStream) -> std::io::Result<[u8; CLIENT_MASTER_KEY_SIZE]> {
     let mut rng: ThreadRng = rand::thread_rng();
-    let mut data: PacketData = [0; MAX_PACKET_SIZE];
+    let mut data: [u8; CLIENT_MASTER_KEY_SIZE] = [0; CLIENT_MASTER_KEY_SIZE];
     data.copy_from_slice(
         (0..CLIENT_MASTER_KEY_SIZE)
             .map(|_| rng.gen_range(0..255))
             .collect::<Vec<u8>>()
             .as_slice(),
     );
-    let buffer = Packet::new(PacketType::HELLOCLIENT, data);
-    serde_cbor::to_writer(stream, &buffer).expect("Failed to send data to server...");
-    Ok(buffer)
+    let buffer: HelloClientRequest = HelloClientRequest::new(data);
+    serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");
+    Ok(data)
 }
 
-fn send_public_key(stream: &mut TcpStream, pub_key: &PublicKey) -> std::io::Result<Packet> {
-    let data_vec: Vec<u8> =
-        serde_cbor::to_vec(&pub_key.encryption_value()).expect("Error while  formatting data...");
-    let mut data: PacketData = [0; MAX_PACKET_SIZE];
-    data.copy_from_slice(&data_vec);
-    let buffer: Packet = Packet::new(PacketType::SHARINGPUBKEY, data);
-    serde_cbor::to_writer(stream, &buffer).expect("Failed to send data to server...");
-    Ok(buffer)
+fn send_public_key(stream: &mut TcpStream, pub_key: &PublicKey) -> std::io::Result<()> {
+    let buffer: SharingPubKeyRequest = SharingPubKeyRequest::new(pub_key.clone());
+
+    serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");
+    Ok(())
 }
 
 fn send_cyphered_master_password(
     stream: &mut TcpStream,
     public_key: &PublicKey,
     password: &[u8; MASTER_KEY_SIZE],
-) -> std::io::Result<Packet> {
-    let mut data: PacketData = [0; MAX_PACKET_SIZE];
-    data.copy_from_slice(password);
-
-    let buffer: Packet = Packet::new(PacketType::KEYSVALIDATED, data);
-    let cyphered_buffer: Vec<u8> =
-        serde_cbor::to_vec(&buffer).expect("Error while formatting data...");
-    let cyphered_buffer: Vec<u8> = enigma(
-        &cyphered_buffer,
+) -> std::io::Result<()> {
+    let data: Vec<usize> = enigma(
+        &password
+            .iter()
+            .map(|&x| usize::from(x))
+            .collect::<Vec<usize>>(),
         public_key.encryption_value(),
-        public_key.key_len(),
+        public_key.modulus(),
     );
-    serde_cbor::to_writer(stream, &cyphered_buffer).expect("Failed to send data to server...");
-    Ok(buffer)
+    let buffer: KeysValidatedRequest = KeysValidatedRequest::new(data);
+    serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");
+    Ok(())
 }
 
 fn read_server_hello(stream: &mut TcpStream) -> std::io::Result<[u8; SERVER_MASTER_KEY_SIZE]> {
-    let buffer: Packet =
-        serde_cbor::from_reader(stream).expect("Invalid data received from server...");
-    if buffer.packet_type() != PacketType::HELLOSERVER {
-        Err(Error::other("Wrong packet type"))
-    } else {
-        let mut val: [u8; SERVER_MASTER_KEY_SIZE] = [0; SERVER_MASTER_KEY_SIZE];
-        val.copy_from_slice(&buffer.data());
-        Ok(val)
-    }
+    let mut de = serde_json::Deserializer::from_reader(stream);
+    let buffer: HelloServerRequest =
+        HelloServerRequest::deserialize(&mut de).expect("Invalid data received from server...");
+
+    Ok(buffer.key())
 }
 
-fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> std::io::Result<Packet> {
-    let buffer: Packet =
-        serde_cbor::from_reader(stream).expect("Invalid data received from server...");
-    if buffer.packet_type() != PacketType::SHARINGCRYPTEDPUBKEY {
-        Err(Error::other("Wrong packet type"))
-    } else {
-        Ok(buffer)
-    }
+fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> std::io::Result<Vec<usize>> {
+    let mut de = serde_json::Deserializer::from_reader(stream);
+    let buffer: SharingCryptedPubKeyRequest = SharingCryptedPubKeyRequest::deserialize(&mut de)
+        .expect("Invalid data received from server...");
+
+    Ok(buffer.crypted_pub_key())
 }
 
 fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool> {
-    let buffer: Packet =
-        serde_cbor::from_reader(stream).expect("Invalid data received from server...");
-    if buffer.packet_type() != PacketType::HANDSHAKEVALIDATED {
-        return Err(Error::other("Wrong packet type"));
-    }
-    match &buffer.data()[0..2] {
+    let mut de = serde_json::Deserializer::from_reader(stream);
+    let buffer: HandshakeValidatedRequest = HandshakeValidatedRequest::deserialize(&mut de)
+        .expect("Invalid data received from server...");
+
+    match &buffer.status()[0..2] {
         OK_BYTES => Ok(true),
         KO_BYTES => Ok(false),
         _ => Err(Error::other("Unexpected value!")),
@@ -91,27 +83,24 @@ fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool> {
 }
 
 fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey), PublicKey)> {
-    let keys = generate_keys();
-    let client_hello = send_hello(stream).unwrap().data();
-    let mut client_hello_bytes: [u8; CLIENT_MASTER_KEY_SIZE] = [0; CLIENT_MASTER_KEY_SIZE];
-    client_hello_bytes.copy_from_slice(&client_hello);
-    let server_hello_bytes = read_server_hello(stream)?;
+    let keys: (PublicKey, PrivateKey) = generate_keys();
+    let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = send_hello(stream).unwrap();
+    let server_hello: [u8; SERVER_MASTER_KEY_SIZE] = read_server_hello(stream)?;
     send_public_key(stream, &keys.0)?;
-    let cyphered_server_key: Vec<u8> = enigma(
-        &read_server_cyphered_pub_key(stream)
-            .unwrap()
-            .data()
-            .to_vec(),
+    let cyphered_server_key: Vec<usize> = read_server_cyphered_pub_key(stream)?;
+    let server_key: Vec<usize> = enigma(
+        &cyphered_server_key,
         keys.1.decryption_value(),
-        keys.1.key_len(),
+        keys.1.modulus(),
     );
-    let server_key: PublicKey = serde_cbor::from_slice(cyphered_server_key.as_slice())
-        .expect("Invalid data, expected a public key!");
-    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello_bytes, server_hello_bytes].concat()
+    let server_key: Vec<u8> = server_key.iter().map(|&x| x as u8).collect();
+    let server_key: PublicKey = serde_json::from_slice(&server_key).unwrap();
+    let master_password: [u8; MASTER_KEY_SIZE] = [client_hello, server_hello].concat()
         [0..MASTER_KEY_SIZE]
         .try_into()
         .unwrap();
     send_cyphered_master_password(stream, &server_key, &master_password)?;
+
     match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),
         Ok(false) => Err(Error::other("Handshake went wrong :(")),
@@ -128,6 +117,8 @@ pub fn start_client(ip: String, port: u16) -> std::io::Result<()> {
     let stdin: io::Stdin = io::stdin();
 
     println!("Client started and connected to {}!", endpoint);
+    let keys = handshake(&mut stream);
+    println!("handshake completed! keys {:?}", keys);
     loop {
         stdin
             .read_line(&mut input_buffer)

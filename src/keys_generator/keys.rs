@@ -1,29 +1,30 @@
 use super::{private_keys::generate_private_key, public_keys::generate_public_key};
-use primes::{PrimeSet, Sieve};
-use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use num_primes::Generator;
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PublicKey {
     encryption_value: usize,
-    key_len: usize,
+    modulus: usize,
 }
 
+#[derive(Debug)]
 pub struct PrivateKey {
     decryption_value: usize,
-    key_len: usize,
+    modulus: usize,
 }
 
 impl PrivateKey {
-    pub fn new(decryption_value: usize, key_len: usize) -> Self {
+    pub fn new(decryption_value: usize, modulus: usize) -> Self {
         return PrivateKey {
             decryption_value,
-            key_len,
+            modulus,
         };
     }
 
-    pub fn key_len(self: &Self) -> usize {
-        self.key_len
+    pub fn modulus(self: &Self) -> usize {
+        self.modulus
     }
 
     pub fn decryption_value(self: &Self) -> usize {
@@ -32,15 +33,15 @@ impl PrivateKey {
 }
 
 impl PublicKey {
-    pub fn new(encryption_value: usize, key_len: usize) -> Self {
+    pub fn new(encryption_value: usize, modulus: usize) -> Self {
         PublicKey {
             encryption_value,
-            key_len,
+            modulus,
         }
     }
 
-    pub fn key_len(self: &Self) -> usize {
-        self.key_len
+    pub fn modulus(self: &Self) -> usize {
+        self.modulus
     }
 
     pub fn encryption_value(self: &Self) -> usize {
@@ -51,36 +52,23 @@ impl PublicKey {
 pub struct PrimeBase {
     pub p: usize,
     pub q: usize,
+    pub modulus: usize,
 }
 
 fn generate_base() -> PrimeBase {
-    let mut p: usize = 0;
-    let mut q: usize = 0;
-    let mut pset: Sieve = Sieve::new();
-    let mut rng: ThreadRng = rand::thread_rng();
-
-    while p == q {
-        p = (pset
-            .iter()
-            .enumerate()
-            .skip(100)
-            .choose(&mut rng)
-            .unwrap()
-            .1) as usize;
-        q = (pset
-            .iter()
-            .enumerate()
-            .skip(100)
-            .choose(&mut rng)
-            .unwrap()
-            .1) as usize;
-    }
-    PrimeBase { p, q }
+    let p: usize = Generator::new_prime(8)
+        .to_usize()
+        .expect("Failed to format data in key creation");
+    let q: usize = Generator::new_prime(8)
+        .to_usize()
+        .expect("Failed to format data in key creation");
+    let modulus: usize = p * q;
+    PrimeBase { p, q, modulus }
 }
 
 pub fn generate_keys() -> (PublicKey, PrivateKey) {
-    let base = generate_base();
-    let public_key = generate_public_key(&base);
-    let private_key = generate_private_key(&public_key.0, public_key.1, base.q * base.p);
+    let base: PrimeBase = generate_base();
+    let public_key: (PublicKey, usize) = generate_public_key(&base);
+    let private_key: PrivateKey = generate_private_key(&public_key.0, public_key.1, base.modulus);
     (public_key.0, private_key)
 }

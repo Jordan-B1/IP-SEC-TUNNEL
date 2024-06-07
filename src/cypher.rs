@@ -1,5 +1,11 @@
-pub fn enigma(data: &Vec<u8>, exponent: usize, modulus: usize) -> Vec<u8> {
+use num_bigint::{BigUint, ToBigUint};
+
+pub fn enigma(data: &Vec<usize>, exponent: usize, modulus: usize) -> Vec<usize> {
     data.iter()
-        .map(|&byte| ((byte as usize ^ exponent) % modulus) as u8)
+        .map(|&byte| {
+            let b: BigUint = BigUint::from(byte);
+            let c = b.pow(exponent as u32) % modulus.to_biguint().unwrap();
+            return c.to_u32_digits()[0] as usize;
+        })
         .collect()
 }
