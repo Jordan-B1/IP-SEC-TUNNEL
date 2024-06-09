@@ -120,31 +120,62 @@ fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey)
         return Err(Error::other("Handshake went wrong :("));
     }
 }
-fn echo_server(stream: &mut TcpStream) {
-    let mut buffer: PacketData = [0; MAX_PACKET_SIZE];
-    let mut byte_read: usize;
-    let stdin: io::Stdin = io::stdin();
-    let mut input_buffer: String = String::new();
 
+fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
+    let mut input_buffer: String = String::new();
+    let stdin: io::Stdin = io::stdin();
+    let enigma_buffer: Vec<usize>;
+
+    print!("> ");
+    std::io::stdout().flush();
+    stdin
+        .read_line(&mut input_buffer)
+        .expect("Error while reading standard input...");
+    enigma_buffer = enigma(
+        &input_buffer
+            .as_bytes()
+            .iter()
+            .map(|x| usize::from(*x))
+            .collect(),
+        pub_key.encryption_value(),
+        pub_key.modulus(),
+    );
+    input_buffer = serde_json::to_string(&enigma_buffer).unwrap();
+    stream
+        .write(input_buffer.as_bytes())
+        .expect("Failed sending data to client...");
+}
+
+fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
+    let mut buffer: [u8; MAX_PACKET_SIZE] = [0; MAX_PACKET_SIZE];
+    let json_data: &str;
+    let cyphered_message: Vec<usize>;
+    let plain_message: Vec<usize>;
+    let data_size: usize;
+
+    data_size = stream
+        .read(&mut buffer)
+        .expect("Failed to read from client...");
+    json_data = std::str::from_utf8(&buffer[0..data_size]).unwrap();
+    cyphered_message = serde_json::from_str(json_data).unwrap();
+    plain_message = enigma(
+        &cyphered_message,
+        private_key.decryption_value(),
+        private_key.modulus(),
+    );
+    print!(
+        "Peer: {}",
+        std::str::from_utf8(&plain_message.iter().map(|x| *x as u8).collect::<Vec<u8>>()).unwrap()
+    );
+}
+
+fn echo_server(stream: &mut TcpStream) {
     println!("New client connected!");
-    let keys = handshake(stream).unwrap();
+    let keys: ((PublicKey, PrivateKey), PublicKey) = handshake(stream).unwrap();
     println!("handshake completed! keys {:?}", keys);
     loop {
-        byte_read = stream
-            .read(&mut buffer)
-            .expect("Couldn't read from client...");
-        if byte_read == 0 {
-            break;
-        }
-        println!("{}", std::str::from_utf8(&buffer).unwrap());
-        stdin
-            .read_line(&mut input_buffer)
-            .expect("Error while reading standard input...");
-        stream
-            .write(input_buffer.as_bytes())
-            .expect("Failed sending data to server...");
-        buffer.fill(0);
-        input_buffer.clear();
+        read_stream(stream, &keys.0 .1);
+        send_input(stream, &keys.1);
     }
     println!("Client disconnected!");
 }
