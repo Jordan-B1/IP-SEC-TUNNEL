@@ -11,12 +11,12 @@ fn main() -> std::io::Result<()> {
         protocol::server::run::start_server(
             String::from("127.0.0.1"),
             args[1].parse().expect("Invalid argument"),
-        )?;
+        );
     } else {
         protocol::client::run::start_client(
             args[1].clone(),
             args[2].parse().expect("Invalid argument: port"),
-        )?;
+        );
     }
     Ok(())
 }

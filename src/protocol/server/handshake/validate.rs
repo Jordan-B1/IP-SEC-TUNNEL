@@ -1,13 +1,16 @@
-use std::{io::Error, net::TcpStream};
+use std::net::TcpStream;
 
 use crate::{
     cypher::enigma,
     keys_generator::keys::{generate_keys, PrivateKey, PublicKey},
-    protocol::shared::{
-        constant::{
-            CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, OK_BYTES, SERVER_MASTER_KEY_SIZE,
+    protocol::{
+        server::errors::TunnelResult,
+        shared::{
+            constant::{
+                CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, OK_BYTES, SERVER_MASTER_KEY_SIZE,
+            },
+            types::HandshakeValidatedRequest,
         },
-        types::HandshakeValidatedRequest,
     },
 };
 
@@ -21,7 +24,7 @@ fn validate_handshake(
     password_received: Vec<usize>,
     real_password: &[u8; MASTER_KEY_SIZE],
     private_key: &PrivateKey,
-) -> std::io::Result<bool> {
+) -> TunnelResult<bool> {
     let plain_password: Vec<u8> = enigma(
         &password_received,
         private_key.decryption_value(),
@@ -41,7 +44,7 @@ fn validate_handshake(
     Ok(&data[0..2] == OK_BYTES)
 }
 
-pub fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey), PublicKey)> {
+pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey), PublicKey)> {
     let keys: (PublicKey, PrivateKey) = generate_keys();
     let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = read_client_hello(stream)?;
     let server_hello: [u8; SERVER_MASTER_KEY_SIZE] = send_hello(stream)?;
@@ -58,6 +61,6 @@ pub fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, Private
     if handshake_result {
         return Ok((keys, client_public_key));
     } else {
-        return Err(Error::other("Handshake went wrong :("));
+        return Err(crate::protocol::server::errors::TunnelError::HANDSHAKEWENTWRONG);
     }
 }

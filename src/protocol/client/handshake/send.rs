@@ -5,13 +5,16 @@ use rand::{rngs::ThreadRng, Rng};
 use crate::{
     cypher::enigma,
     keys_generator::keys::PublicKey,
-    protocol::shared::{
-        constant::{CLIENT_MASTER_KEY_SIZE, MASTER_KEY_SIZE},
-        types::{HelloClientRequest, KeysValidatedRequest, SharingPubKeyRequest},
+    protocol::{
+        client::errors::TunnelResult,
+        shared::{
+            constant::{CLIENT_MASTER_KEY_SIZE, MASTER_KEY_SIZE},
+            types::{HelloClientRequest, KeysValidatedRequest, SharingPubKeyRequest},
+        },
     },
 };
 
-pub fn send_hello(stream: &mut TcpStream) -> std::io::Result<[u8; CLIENT_MASTER_KEY_SIZE]> {
+pub fn send_hello(stream: &mut TcpStream) -> TunnelResult<[u8; CLIENT_MASTER_KEY_SIZE]> {
     let mut rng: ThreadRng = rand::thread_rng();
     let mut data: [u8; CLIENT_MASTER_KEY_SIZE] = [0; CLIENT_MASTER_KEY_SIZE];
     data.copy_from_slice(
@@ -25,7 +28,7 @@ pub fn send_hello(stream: &mut TcpStream) -> std::io::Result<[u8; CLIENT_MASTER_
     Ok(data)
 }
 
-pub fn send_public_key(stream: &mut TcpStream, pub_key: &PublicKey) -> std::io::Result<()> {
+pub fn send_public_key(stream: &mut TcpStream, pub_key: &PublicKey) -> TunnelResult<()> {
     let buffer: SharingPubKeyRequest = SharingPubKeyRequest::new(pub_key.clone());
 
     serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");
@@ -36,7 +39,7 @@ pub fn send_cyphered_master_password(
     stream: &mut TcpStream,
     public_key: &PublicKey,
     password: &[u8; MASTER_KEY_SIZE],
-) -> std::io::Result<()> {
+) -> TunnelResult<()> {
     let data: Vec<usize> = enigma(
         &password
             .iter()

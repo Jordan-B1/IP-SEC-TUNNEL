@@ -1,41 +1,44 @@
-use std::{io::Error, net::TcpStream};
+use std::net::TcpStream;
 
 use serde::Deserialize;
 
 use crate::{
     keys_generator::keys::PublicKey,
-    protocol::shared::{
-        constant::{CLIENT_MASTER_KEY_SIZE, MASTER_KEY_SIZE},
-        types::{HelloClientRequest, KeysValidatedRequest, SharingPubKeyRequest},
+    protocol::{
+        server::errors::{TunnelError, TunnelResult},
+        shared::{
+            constant::{CLIENT_MASTER_KEY_SIZE, MASTER_KEY_SIZE},
+            types::{HelloClientRequest, KeysValidatedRequest, SharingPubKeyRequest},
+        },
     },
 };
 
-pub fn read_client_hello(stream: &mut TcpStream) -> std::io::Result<[u8; CLIENT_MASTER_KEY_SIZE]> {
+pub fn read_client_hello(stream: &mut TcpStream) -> TunnelResult<[u8; CLIENT_MASTER_KEY_SIZE]> {
     let mut de = serde_json::Deserializer::from_reader(stream);
-    let buffer: HelloClientRequest =
-        HelloClientRequest::deserialize(&mut de).expect("Invalid data received from client...");
-
-    Ok(buffer.key())
-}
-
-pub fn read_client_public_key(stream: &mut TcpStream) -> std::io::Result<PublicKey> {
-    let mut de = serde_json::Deserializer::from_reader(stream);
-    let buffer: SharingPubKeyRequest =
-        SharingPubKeyRequest::deserialize(&mut de).expect("Invalid data received from client...");
-
-    Ok(buffer.pub_key())
-}
-
-pub fn read_cyphered_password(stream: &mut TcpStream) -> std::io::Result<Vec<usize>> {
-    let mut de = serde_json::Deserializer::from_reader(stream);
-    let buffer: KeysValidatedRequest =
-        KeysValidatedRequest::deserialize(&mut de).expect("Invalid data received from client...");
-    let key = buffer.key();
-    if key.len() != MASTER_KEY_SIZE {
-        return Err(Error::new(
-            std::io::ErrorKind::InvalidData,
-            "Invalid key size",
-        ));
+    match HelloClientRequest::deserialize(&mut de) {
+        Ok(buffer) => Ok(buffer.key()),
+        Err(_) => Err(TunnelError::INVALIDPACKET),
     }
-    Ok(buffer.key())
+}
+
+pub fn read_client_public_key(stream: &mut TcpStream) -> TunnelResult<PublicKey> {
+    let mut de = serde_json::Deserializer::from_reader(stream);
+    match SharingPubKeyRequest::deserialize(&mut de) {
+        Ok(buffer) => Ok(buffer.pub_key()),
+        Err(_) => Err(TunnelError::INVALIDPACKET),
+    }
+}
+
+pub fn read_cyphered_password(stream: &mut TcpStream) -> TunnelResult<Vec<usize>> {
+    let mut de = serde_json::Deserializer::from_reader(stream);
+    match KeysValidatedRequest::deserialize(&mut de) {
+        Err(_) => Err(TunnelError::INVALIDKEYSIZE),
+        Ok(buffer) => {
+            if buffer.key().len() != MASTER_KEY_SIZE {
+                Err(TunnelError::INVALIDKEYSIZE)
+            } else {
+                Ok(buffer.key())
+            }
+        }
+    }
 }

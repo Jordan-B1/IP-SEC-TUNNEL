@@ -9,12 +9,14 @@ use crate::{
     protocol::{client::handshake::validate::handshake, shared::constant::MAX_PACKET_SIZE},
 };
 
+use super::errors::TunnelResult;
+
 fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let mut input_buffer: String = String::new();
     let stdin: io::Stdin = io::stdin();
     let enigma_buffer: Vec<usize>;
 
-    print!("Localhost:  ");
+    print!("Localhost: ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
@@ -59,11 +61,11 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
 
 fn retry_handshake(
     stream: &mut TcpStream,
-    keys: &mut Result<((PublicKey, PrivateKey), PublicKey), io::Error>,
+    keys: &mut TunnelResult<((PublicKey, PrivateKey), PublicKey)>,
 ) -> bool {
     let mut input: String = String::new();
 
-    println!("Handshake failed {}", keys.as_ref().unwrap_err());
+    println!("Handshake failed {:?}", keys.as_ref().unwrap_err());
     println!("Should we retry the process ? Y/n");
     std::io::stdin()
         .read_line(&mut input)
@@ -76,16 +78,16 @@ fn retry_handshake(
     }
 }
 
-pub fn start_client(ip: String, port: u16) -> std::io::Result<()> {
+pub fn start_client(ip: String, port: u16) -> () {
     let endpoint: String = format!("{}:{}", ip, port);
     let mut stream: TcpStream =
         TcpStream::connect(endpoint.clone()).expect("Failed to connect to server...");
 
     println!("Client started and connected to {}!", endpoint);
-    let mut keys: Result<((PublicKey, PrivateKey), PublicKey), io::Error> = handshake(&mut stream);
+    let mut keys: TunnelResult<((PublicKey, PrivateKey), PublicKey)> = handshake(&mut stream);
     while keys.is_err() {
         if !retry_handshake(&mut stream, &mut keys) {
-            return Ok(());
+            return;
         }
     }
     let keys: ((PublicKey, PrivateKey), PublicKey) = keys.unwrap();
@@ -94,5 +96,4 @@ pub fn start_client(ip: String, port: u16) -> std::io::Result<()> {
         send_input(&mut stream, &keys.1);
         read_stream(&mut stream, &keys.0 .1);
     }
-    Ok(())
 }

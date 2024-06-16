@@ -1,15 +1,18 @@
-use std::{io::Error, net::TcpStream};
+use std::net::TcpStream;
 
 use serde::Deserialize;
 
 use crate::{
     cypher::enigma,
     keys_generator::keys::{generate_keys, PrivateKey, PublicKey},
-    protocol::shared::{
-        constant::{
-            CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, OK_BYTES, SERVER_MASTER_KEY_SIZE,
+    protocol::{
+        client::errors::TunnelResult,
+        shared::{
+            constant::{
+                CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, OK_BYTES, SERVER_MASTER_KEY_SIZE,
+            },
+            types::HandshakeValidatedRequest,
         },
-        types::HandshakeValidatedRequest,
     },
 };
 
@@ -18,7 +21,7 @@ use super::{
     send::{send_cyphered_master_password, send_hello, send_public_key},
 };
 
-fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool> {
+fn handshake_succeed(stream: &mut TcpStream) -> TunnelResult<bool> {
     let mut de = serde_json::Deserializer::from_reader(stream);
     let buffer: HandshakeValidatedRequest = HandshakeValidatedRequest::deserialize(&mut de)
         .expect("Invalid data received from server...");
@@ -26,13 +29,13 @@ fn handshake_succeed(stream: &mut TcpStream) -> std::io::Result<bool> {
     match &buffer.status()[0..2] {
         OK_BYTES => Ok(true),
         KO_BYTES => Ok(false),
-        _ => Err(Error::other("Unexpected value!")),
+        _ => Err(crate::protocol::client::errors::TunnelError::UnexpectedValue),
     }
 }
 
-pub fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, PrivateKey), PublicKey)> {
+pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey), PublicKey)> {
     let keys: (PublicKey, PrivateKey) = generate_keys();
-    let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = send_hello(stream).unwrap();
+    let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = send_hello(stream)?;
     let server_hello: [u8; SERVER_MASTER_KEY_SIZE] = read_server_hello(stream)?;
     send_public_key(stream, &keys.0)?;
     let cyphered_server_key: Vec<usize> = read_server_cyphered_pub_key(stream)?;
@@ -51,7 +54,7 @@ pub fn handshake(stream: &mut TcpStream) -> std::io::Result<((PublicKey, Private
 
     match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),
-        Ok(false) => Err(Error::other("Handshake went wrong :(")),
+        Ok(false) => Err(crate::protocol::client::errors::TunnelError::HandshakeWentWrong),
         Err(x) => Err(x),
     }
 }

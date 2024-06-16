@@ -1,16 +1,14 @@
 use std::{
-    io::{self, Error, Read, Write},
+    io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     thread,
 };
-
-use serde::Deserialize;
 
 use crate::{
     cypher::enigma,
     keys_generator::keys::{PrivateKey, PublicKey},
     protocol::{
-        server::handshake::validate::handshake,
+        server::{errors::TunnelResult, handshake::validate::handshake},
         shared::{
             constant::{MAX_CONNECTION_ATTEMPS, MAX_PACKET_SIZE},
             types::PacketType,
@@ -23,7 +21,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let stdin: io::Stdin = io::stdin();
     let enigma_buffer: Vec<usize>;
 
-    print!("localhost:  ");
+    print!("localhost: ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
@@ -69,9 +67,11 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
 fn echo_server(stream: &mut TcpStream) {
     println!("New client connected!");
     let mut connection_attemps: u8 = 0;
-    let mut keys: Result<((PublicKey, PrivateKey), PublicKey), Error> = handshake(stream);
+    let mut keys: TunnelResult<((PublicKey, PrivateKey), PublicKey)> = handshake(stream);
     connection_attemps += 1;
     while keys.is_err() && connection_attemps <= MAX_CONNECTION_ATTEMPS {
+        println!("Handshake went wrong : {:?}", keys.err().unwrap());
+        println!("Trying again");
         keys = handshake(stream);
         connection_attemps += 1;
     }
@@ -93,9 +93,10 @@ fn echo_server(stream: &mut TcpStream) {
     }
 }
 
-pub fn start_server(ip: String, port: u16) -> std::io::Result<()> {
+pub fn start_server(ip: String, port: u16) -> () {
     let endpoint: String = format!("{}:{}", ip, port);
-    let listener: TcpListener = TcpListener::bind(endpoint)?;
+    let listener: TcpListener =
+        TcpListener::bind(endpoint).expect("Failed to connect to tcp socket!");
 
     println!("Server launched on port {}!", port);
     for stream in listener.incoming() {
@@ -106,5 +107,4 @@ pub fn start_server(ip: String, port: u16) -> std::io::Result<()> {
             Err(e) => println!("Couldn't get client: {e:?}"),
         }
     }
-    Ok(())
 }
