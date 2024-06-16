@@ -1,5 +1,7 @@
 pub const MAX_PACKET_SIZE: usize = 1024;
 
+pub const MAX_CONNECTION_ATTEMPS: u8 = 3;
+
 pub const CLIENT_MASTER_KEY_SIZE: usize = 12;
 
 pub const SERVER_MASTER_KEY_SIZE: usize = 12;

@@ -6,7 +6,9 @@ use crate::{
     cypher::enigma,
     keys_generator::keys::{generate_keys, PrivateKey, PublicKey},
     protocol::shared::{
-        constant::{CLIENT_MASTER_KEY_SIZE, MASTER_KEY_SIZE, SERVER_MASTER_KEY_SIZE},
+        constant::{
+            CLIENT_MASTER_KEY_SIZE, KO_BYTES, MASTER_KEY_SIZE, OK_BYTES, SERVER_MASTER_KEY_SIZE,
+        },
         types::HandshakeValidatedRequest,
     },
 };

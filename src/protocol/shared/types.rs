@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::keys_generator::keys::PublicKey;
 
-use super::constant::{CLIENT_MASTER_KEY_SIZE, MAX_PACKET_SIZE, SERVER_MASTER_KEY_SIZE};
-
-pub type PacketData = [u8; MAX_PACKET_SIZE];
+use super::constant::{CLIENT_MASTER_KEY_SIZE, SERVER_MASTER_KEY_SIZE};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct HelloClientRequest {
@@ -98,4 +96,5 @@ pub enum PacketType {
     SHARINGCRYPTEDPUBKEY(SharingCryptedPubKeyRequest),
     KEYSVALIDATED(KeysValidatedRequest),
     HANDSHAKEVALIDATED(HandshakeValidatedRequest),
+    LEAVE,
 }

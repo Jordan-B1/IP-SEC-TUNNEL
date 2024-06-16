@@ -1,0 +1,36 @@
+@startuml uml
+
+group success 
+
+client -> server : connection
+server -> client : connection succeed
+client -> server : start handshake
+
+end
+
+group one fail
+
+client -> server : connection
+server -> client : connection failed
+
+client -> server : connection
+server -> client : connection succeed
+client -> server : start handshake
+
+end
+
+group complete fail
+
+client -> server : connection
+server -> client : connection failed
+
+client -> server : connection
+server -> client : connection failed
+
+client -> server : connection
+server -> client : LEAVE
+
+end
+
+
+@enduml

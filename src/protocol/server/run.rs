@@ -4,10 +4,18 @@ use std::{
     thread,
 };
 
+use serde::Deserialize;
+
 use crate::{
     cypher::enigma,
     keys_generator::keys::{PrivateKey, PublicKey},
-    protocol::{server::handshake::validate::handshake, shared::constant::MAX_PACKET_SIZE},
+    protocol::{
+        server::handshake::validate::handshake,
+        shared::{
+            constant::{MAX_CONNECTION_ATTEMPS, MAX_PACKET_SIZE},
+            types::PacketType,
+        },
+    },
 };
 
 fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
@@ -15,7 +23,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let stdin: io::Stdin = io::stdin();
     let enigma_buffer: Vec<usize>;
 
-    print!("> ");
+    print!("localhost:  ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
@@ -60,10 +68,22 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
 
 fn echo_server(stream: &mut TcpStream) {
     println!("New client connected!");
-    let keys: Result<((PublicKey, PrivateKey), PublicKey), Error> = handshake(stream); //handshake(stream).unwrap();
-    while keys.is_err() {
-        println!("Handshake went wrong with {:?}", stream.peer_addr());
-        println!("Should we retry the process ? Y/n");
+    let mut connection_attemps: u8 = 0;
+    let mut keys: Result<((PublicKey, PrivateKey), PublicKey), Error> = handshake(stream);
+    connection_attemps += 1;
+    while keys.is_err() && connection_attemps <= MAX_CONNECTION_ATTEMPS {
+        keys = handshake(stream);
+        connection_attemps += 1;
+    }
+    if keys.is_err() {
+        println!(
+            "Too many failed connection for client {:?}, stopping connection...",
+            stream.peer_addr()
+        );
+        serde_json::to_writer(stream, &PacketType::LEAVE)
+            .expect("Failed to send data to client...");
+        println!("Client disconnected!");
+        return;
     }
     let keys: ((PublicKey, PrivateKey), PublicKey) = keys.unwrap();
     println!("handshake completed! keys {:?}", keys);
@@ -71,7 +91,6 @@ fn echo_server(stream: &mut TcpStream) {
         read_stream(stream, &keys.0 .1);
         send_input(stream, &keys.1);
     }
-    println!("Client disconnected!");
 }
 
 pub fn start_server(ip: String, port: u16) -> std::io::Result<()> {

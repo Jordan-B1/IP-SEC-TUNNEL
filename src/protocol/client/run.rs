@@ -14,7 +14,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let stdin: io::Stdin = io::stdin();
     let enigma_buffer: Vec<usize>;
 
-    print!("> ");
+    print!("Localhost:  ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
@@ -57,13 +57,38 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     );
 }
 
+fn retry_handshake(
+    stream: &mut TcpStream,
+    keys: &mut Result<((PublicKey, PrivateKey), PublicKey), io::Error>,
+) -> bool {
+    let mut input: String = String::new();
+
+    println!("Handshake failed {}", keys.as_ref().unwrap_err());
+    println!("Should we retry the process ? Y/n");
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Error while reading standard input...");
+    if input == "Y" || input == "y" {
+        *keys = handshake(stream);
+        return true;
+    } else {
+        return false;
+    }
+}
+
 pub fn start_client(ip: String, port: u16) -> std::io::Result<()> {
     let endpoint: String = format!("{}:{}", ip, port);
     let mut stream: TcpStream =
         TcpStream::connect(endpoint.clone()).expect("Failed to connect to server...");
 
     println!("Client started and connected to {}!", endpoint);
-    let keys: ((PublicKey, PrivateKey), PublicKey) = handshake(&mut stream).unwrap();
+    let mut keys: Result<((PublicKey, PrivateKey), PublicKey), io::Error> = handshake(&mut stream);
+    while keys.is_err() {
+        if !retry_handshake(&mut stream, &mut keys) {
+            return Ok(());
+        }
+    }
+    let keys: ((PublicKey, PrivateKey), PublicKey) = keys.unwrap();
     println!("handshake completed! keys {:?}", keys);
     loop {
         send_input(&mut stream, &keys.1);
