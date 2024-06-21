@@ -21,6 +21,15 @@ use super::{
     send::{send_cyphered_master_password, send_hello, send_public_key},
 };
 
+/// Check if the handshake succeed
+///
+/// This function will read the stream from the server and check if the handshake succeed at the end of the protocol
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the server
+///
+/// # Returns
+/// **TunnelResult<bool>** - True if the handshake succeed, false otherwise or an error if the value received is unexpected
 fn handshake_succeed(stream: &mut TcpStream) -> TunnelResult<bool> {
     let mut de = serde_json::Deserializer::from_reader(stream);
     let buffer: HandshakeValidatedRequest = HandshakeValidatedRequest::deserialize(&mut de)
@@ -33,11 +42,20 @@ fn handshake_succeed(stream: &mut TcpStream) -> TunnelResult<bool> {
     }
 }
 
+/// Handshake with the server
+///
+/// This function will perform the handshake protocol with the server
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the server
+///
+/// # Returns
+/// **TunnelResult<((PublicKey, PrivateKey), PublicKey)>** - The keys used during the handshake if the handshake succeed or an error if it failed
 pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey), PublicKey)> {
     let keys: (PublicKey, PrivateKey) = generate_keys();
     let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = send_hello(stream)?;
     let server_hello: [u8; SERVER_MASTER_KEY_SIZE] = read_server_hello(stream)?;
-    send_public_key(stream, &keys.0)?;
+    send_public_key(stream, &keys.0);
     let cyphered_server_key: Vec<usize> = read_server_cyphered_pub_key(stream)?;
     let server_key: Vec<usize> = enigma(
         &cyphered_server_key,
@@ -50,7 +68,7 @@ pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey
         [0..MASTER_KEY_SIZE]
         .try_into()
         .unwrap();
-    send_cyphered_master_password(stream, &server_key, &master_password)?;
+    send_cyphered_master_password(stream, &server_key, &master_password);
 
     match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),

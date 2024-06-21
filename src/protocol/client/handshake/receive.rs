@@ -10,6 +10,15 @@ use crate::protocol::{
     },
 };
 
+/// Read the hello message from the server
+///
+/// This function will read the hello message from the server
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the server
+///
+/// # Returns
+/// **TunnelResult<[u8; SERVER_MASTER_KEY_SIZE]>** - The random bytes received from the server
 pub fn read_server_hello(stream: &mut TcpStream) -> TunnelResult<[u8; SERVER_MASTER_KEY_SIZE]> {
     let mut de = serde_json::Deserializer::from_reader(stream);
 
@@ -19,6 +28,15 @@ pub fn read_server_hello(stream: &mut TcpStream) -> TunnelResult<[u8; SERVER_MAS
     }
 }
 
+/// Read the public key from the server
+///
+/// This function will read the public key from the server
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the server
+///
+/// # Returns
+/// **TunnelResult<Vec<usize>>** - The cyphered public key received from the server
 pub fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> TunnelResult<Vec<usize>> {
     let mut de = serde_json::Deserializer::from_reader(stream);
 

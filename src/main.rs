@@ -4,6 +4,11 @@ mod cypher;
 mod keys_generator;
 mod protocol;
 
+/// Starting point of the program
+///
+/// It will run different code depending on the number of arguments
+/// If given 2 arguments (ip address and port), it will start a client
+/// If given 1 argument (port), it will start a server
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
