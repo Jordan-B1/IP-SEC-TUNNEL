@@ -2,6 +2,17 @@ use num_bigint::BigInt;
 
 use super::keys::{PrivateKey, PublicKey};
 
+/// Generate a private key from a public key
+///
+/// Using the RSA algorithm, this function will generate a private key from a public key
+///
+/// # Arguments
+/// public_key: **&PublicKey** - The public key to generate the private key from<br/>
+/// r: **usize** - The value of the totient function of the public key modulus<br/>
+/// modulus: **usize** - The value of the public key modulus
+///
+/// # Returns
+/// **PrivateKey** - The private key generated from the public key
 pub fn generate_private_key(public_key: &PublicKey, r: usize, modulus: usize) -> PrivateKey {
     let decryption: usize = BigInt::from(public_key.encryption_value())
         .modinv(&BigInt::from(r))

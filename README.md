@@ -6,3 +6,4 @@ A program that allow secured data transmission over the TCP network. The encrypt
 
 - Add a full documentation
 - Allow read and write operations at the same time (stop turn based interactions)
+- Add a test battery on the maths functions
