@@ -19,6 +19,18 @@ use super::{
     send::{send_crypted_public_key, send_hello},
 };
 
+/// Validate the handshake
+///
+/// This function will compare the password received from the client with the real password and send the result to the client
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client<br/>
+/// password_received: **Vec<usize>** - The password received from the client<br/>
+/// real_password: **&[u8; MASTER_KEY_SIZE]** - The real password to compare with<br/>
+/// private_key: **&PrivateKey** - The private key to decrypt the password received
+///
+/// # Returns
+/// **TunnelResult<bool>** - True if the handshake succeed, false otherwise or an error if the value received is unexpected
 fn validate_handshake(
     stream: &mut TcpStream,
     password_received: Vec<usize>,
@@ -44,6 +56,15 @@ fn validate_handshake(
     Ok(&data[0..2] == OK_BYTES)
 }
 
+/// Handshake with the client
+///
+/// This function will perform the handshake protocol with the client
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client
+///
+/// # Returns
+/// **TunnelResult<((PublicKey, PrivateKey), PublicKey)>** - The keys used during the handshake if the handshake succeed or an error if it failed
 pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey), PublicKey)> {
     let keys: (PublicKey, PrivateKey) = generate_keys();
     let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = read_client_hello(stream)?;
@@ -61,6 +82,6 @@ pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey
     if handshake_result {
         return Ok((keys, client_public_key));
     } else {
-        return Err(crate::protocol::server::errors::TunnelError::HANDSHAKEWENTWRONG);
+        return Err(crate::protocol::server::errors::TunnelError::HandshakeWentWrong);
     }
 }

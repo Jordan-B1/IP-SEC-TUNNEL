@@ -16,12 +16,19 @@ use crate::{
     },
 };
 
+/// Send input to the client
+///
+/// This function will read the input from the user and send it to the client
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client<br/>
+/// pub_key: **&PublicKey** - The public key of the client
 fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let mut input_buffer: String = String::new();
     let stdin: io::Stdin = io::stdin();
     let enigma_buffer: Vec<usize>;
 
-    print!("localhost: ");
+    print!("Pocalhost: ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
@@ -41,6 +48,13 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
         .expect("Failed sending data to client...");
 }
 
+/// Read the stream from the client
+///
+/// This function will read the stream from the client and print the message
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client<br/>
+/// private_key: **&PrivateKey** - The private key to decrypt the message
 fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     let mut buffer: [u8; MAX_PACKET_SIZE] = [0; MAX_PACKET_SIZE];
     let json_data: &str;
@@ -64,7 +78,13 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     );
 }
 
-fn echo_server(stream: &mut TcpStream) {
+/// Launch the server
+///
+/// This function will launch the server and handle the client connection
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client
+fn launch(stream: &mut TcpStream) {
     println!("New client connected!");
     let mut connection_attemps: u8 = 0;
     let mut keys: TunnelResult<((PublicKey, PrivateKey), PublicKey)> = handshake(stream);
@@ -93,6 +113,16 @@ fn echo_server(stream: &mut TcpStream) {
     }
 }
 
+/// Start the server
+///
+/// This function will start the server and listen for incoming connections
+///
+/// # Arguments
+/// ip: **String** - The ip address to listen to<br/>
+/// port: **u16** - The port to listen to
+///
+/// # Returns
+/// **()** - Nothing
 pub fn start_server(ip: String, port: u16) -> () {
     let endpoint: String = format!("{}:{}", ip, port);
     let listener: TcpListener =
@@ -102,7 +132,7 @@ pub fn start_server(ip: String, port: u16) -> () {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                thread::spawn(move || echo_server(&mut stream));
+                thread::spawn(move || launch(&mut stream));
             }
             Err(e) => println!("Couldn't get client: {e:?}"),
         }

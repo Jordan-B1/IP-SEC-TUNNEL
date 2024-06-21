@@ -14,6 +14,15 @@ use crate::{
     },
 };
 
+/// Send the hello message to the client
+///
+/// This function will send the hello message to the client
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client
+///
+/// # Returns
+/// **TunnelResult<[u8; SERVER_MASTER_KEY_SIZE]>** - The key sent to the client
 pub fn send_hello(stream: &mut TcpStream) -> TunnelResult<[u8; SERVER_MASTER_KEY_SIZE]> {
     let mut rng: ThreadRng = rand::thread_rng();
     let mut data: [u8; SERVER_MASTER_KEY_SIZE] = [0; SERVER_MASTER_KEY_SIZE];
@@ -28,6 +37,17 @@ pub fn send_hello(stream: &mut TcpStream) -> TunnelResult<[u8; SERVER_MASTER_KEY
     Ok(data)
 }
 
+/// Send the crypted public key to the client
+///
+/// This function will cypher the public key and send it to the client
+///
+/// # Arguments
+/// stream: **&mut TcpStream** - The stream to the client<br/>
+/// pub_key: **&PublicKey** - The public key to cypher<br/>
+/// other_pub_key: **&PublicKey** - The public key of the client
+///
+/// # Returns
+/// **TunnelResult<()>** - An error if the data could not be sent
 pub fn send_crypted_public_key(
     stream: &mut TcpStream,
     pub_key: &PublicKey,
