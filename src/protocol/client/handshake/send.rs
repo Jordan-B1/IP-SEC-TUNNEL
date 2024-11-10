@@ -45,7 +45,7 @@ pub fn send_hello(stream: &mut TcpStream) -> TunnelResult<[u8; CLIENT_MASTER_KEY
 /// stream: **&mut TcpStream** - The stream to the server<br/>
 /// pub_key: **&PublicKey** - The public key to send
 pub fn send_public_key(stream: &mut TcpStream, pub_key: &PublicKey) {
-    let buffer: SharingPubKeyRequest = SharingPubKeyRequest::new(pub_key.clone());
+    let buffer: SharingPubKeyRequest = SharingPubKeyRequest::new((pub_key.encryption_value().to_bytes_be(), pub_key.modulus().to_bytes_be()));
 
     serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");
 }
@@ -63,13 +63,10 @@ pub fn send_cyphered_master_password(
     public_key: &PublicKey,
     password: &[u8; MASTER_KEY_SIZE],
 ) {
-    let data: Vec<usize> = enigma(
-        &password
-            .iter()
-            .map(|&x| usize::from(x))
-            .collect::<Vec<usize>>(),
-        public_key.encryption_value(),
-        public_key.modulus(),
+    let data: Vec<u8> = enigma(
+        &password.to_vec(),
+        &public_key.encryption_value(),
+        &public_key.modulus(),
     );
     let buffer: KeysValidatedRequest = KeysValidatedRequest::new(data);
     serde_json::to_writer(stream, &buffer).expect("Failed to send data to server...");

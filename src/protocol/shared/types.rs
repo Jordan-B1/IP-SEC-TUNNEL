@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::keys_generator::keys::PublicKey;
 
 use super::constant::{CLIENT_MASTER_KEY_SIZE, SERVER_MASTER_KEY_SIZE};
 
@@ -84,7 +83,7 @@ impl HelloServerRequest {
 /// - **pub_key** - The public key of the client
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct SharingPubKeyRequest {
-    pub_key: PublicKey,
+    pub_key: (Vec<u8>, Vec<u8>),
 }
 
 impl SharingPubKeyRequest {
@@ -97,7 +96,7 @@ impl SharingPubKeyRequest {
     ///
     /// # Returns
     /// **SharingPubKeyRequest** - The sharing public key request created
-    pub fn new(pub_key: PublicKey) -> Self {
+    pub fn new(pub_key: (Vec<u8>, Vec<u8>)) -> Self {
         return Self { pub_key };
     }
 
@@ -107,7 +106,7 @@ impl SharingPubKeyRequest {
     ///
     /// # Returns
     /// **PublicKey** - The public key of the client
-    pub fn pub_key(self: &Self) -> PublicKey {
+    pub fn pub_key(self: &Self) -> (Vec<u8>, Vec<u8>) {
         self.pub_key.clone()
     }
 }
@@ -120,7 +119,7 @@ impl SharingPubKeyRequest {
 /// - **crypted_pub_key** - The crypted public key of the server
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct SharingCryptedPubKeyRequest {
-    crypted_pub_key: Vec<usize>,
+    crypted_pub_key: Vec<u8>,
 }
 
 impl SharingCryptedPubKeyRequest {
@@ -129,11 +128,11 @@ impl SharingCryptedPubKeyRequest {
     /// This function will create a new sharing crypted public key request
     ///
     /// # Arguments
-    /// crypted_pub_key: **Vec<usize>** - The crypted public key of the server
+    /// crypted_pub_key: **Vec<u8>** - The crypted public key of the server
     ///
     /// # Returns
     /// **SharingCryptedPubKeyRequest** - The sharing crypted public key request created
-    pub fn new(crypted_pub_key: Vec<usize>) -> Self {
+    pub fn new(crypted_pub_key: Vec<u8>) -> Self {
         return Self { crypted_pub_key };
     }
 
@@ -142,8 +141,8 @@ impl SharingCryptedPubKeyRequest {
     /// This function will return the crypted public key of the server
     ///
     /// # Returns
-    /// **Vec<usize>** - The crypted public key of the server
-    pub fn crypted_pub_key(self: &Self) -> Vec<usize> {
+    /// **Vec<u8>** - The crypted public key of the server
+    pub fn crypted_pub_key(self: &Self) -> Vec<u8> {
         self.crypted_pub_key.clone()
     }
 }
@@ -156,7 +155,7 @@ impl SharingCryptedPubKeyRequest {
 /// - **key** - The keys validated
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct KeysValidatedRequest {
-    key: Vec<usize>,
+    key: Vec<u8>,
 }
 
 impl KeysValidatedRequest {
@@ -165,11 +164,11 @@ impl KeysValidatedRequest {
     /// This function will create a new keys validated request
     ///
     /// # Arguments
-    /// key: **Vec<usize>** - The keys validated
+    /// key: **Vec<u8>** - The keys validated
     ///
     /// # Returns
     /// **KeysValidatedRequest** - The keys validated request created
-    pub fn new(key: Vec<usize>) -> Self {
+    pub fn new(key: Vec<u8>) -> Self {
         return Self { key };
     }
 
@@ -178,8 +177,8 @@ impl KeysValidatedRequest {
     /// This function will return the keys validated
     ///
     /// # Returns
-    /// **Vec<usize>** - The keys validated
-    pub fn key(self: &Self) -> Vec<usize> {
+    /// **Vec<u8>** - The keys validated
+    pub fn key(self: &Self) -> Vec<u8> {
         self.key.clone()
     }
 }

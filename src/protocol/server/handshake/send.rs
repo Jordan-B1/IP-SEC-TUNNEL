@@ -54,10 +54,10 @@ pub fn send_crypted_public_key(
     other_pub_key: &PublicKey,
 ) -> TunnelResult<()> {
     let data: Vec<u8> = serde_json::to_vec(pub_key).unwrap();
-    let data: Vec<usize> = enigma(
-        &data.iter().map(|&x| x as usize).collect::<Vec<usize>>(),
-        other_pub_key.encryption_value(),
-        other_pub_key.modulus(),
+    let data: Vec<u8> = enigma(
+        &data,
+        &other_pub_key.encryption_value(),
+        &other_pub_key.modulus(),
     );
     let buffer: SharingCryptedPubKeyRequest = SharingCryptedPubKeyRequest::new(data);
     serde_json::to_writer(stream, &buffer).expect("Failed to send data to client...");

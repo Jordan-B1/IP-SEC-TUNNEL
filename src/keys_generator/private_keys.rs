@@ -1,4 +1,4 @@
-use num_bigint::BigInt;
+use num_bigint::BigUint;
 
 use super::keys::{PrivateKey, PublicKey};
 
@@ -8,18 +8,14 @@ use super::keys::{PrivateKey, PublicKey};
 ///
 /// # Arguments
 /// public_key: **&PublicKey** - The public key to generate the private key from<br/>
-/// r: **usize** - The value of the totient function of the public key modulus<br/>
-/// modulus: **usize** - The value of the public key modulus
+/// r: **BigUint** - The value of the totient function of the public key modulus<br/>
+/// modulus: **BigUint** - The value of the public key modulus
 ///
 /// # Returns
 /// **PrivateKey** - The private key generated from the public key
-pub fn generate_private_key(public_key: &PublicKey, r: usize, modulus: usize) -> PrivateKey {
-    let decryption: usize = BigInt::from(public_key.encryption_value())
-        .modinv(&BigInt::from(r))
-        .unwrap()
-        .to_u32_digits()
-        .1[0] as usize;
-    return PrivateKey::new(decryption, modulus);
+pub fn generate_private_key(public_key: &PublicKey, r: &BigUint, modulus: &BigUint) -> PrivateKey {
+    let decryption: BigUint = public_key.encryption_value().modinv(&r).unwrap();
+    return PrivateKey::new(&decryption, &modulus);
 }
 
 #[cfg(test)]
@@ -28,9 +24,10 @@ mod tests {
 
     #[test]
     fn test_generate_private_key() {
-        let public_key: PublicKey = PublicKey::new(17, 3233);
-        let result: PrivateKey = generate_private_key(&public_key, 780, 3233);
-        assert_eq!(result.decryption_value(), 413);
-        assert_eq!(result.modulus(), 3233);
+        let public_key: PublicKey = PublicKey::new(&BigUint::from(17u32), &BigUint::from(3233u32));
+        let result: PrivateKey =
+            generate_private_key(&public_key, &BigUint::from(780u32), &BigUint::from(3233u32));
+        assert_eq!(result.decryption_value(), BigUint::from(413u32));
+        assert_eq!(result.modulus(), BigUint::from(3233u32));
     }
 }

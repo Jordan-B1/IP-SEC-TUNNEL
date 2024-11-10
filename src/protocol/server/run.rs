@@ -26,21 +26,18 @@ use crate::{
 fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
     let mut input_buffer: String = String::new();
     let stdin: io::Stdin = io::stdin();
-    let enigma_buffer: Vec<usize>;
+    let enigma_buffer: Vec<u8>;
 
-    print!("Pocalhost: ");
+    print!("Localhost: ");
     std::io::stdout().flush().unwrap();
     stdin
         .read_line(&mut input_buffer)
         .expect("Error while reading standard input...");
     enigma_buffer = enigma(
         &input_buffer
-            .as_bytes()
-            .iter()
-            .map(|x| usize::from(*x))
-            .collect(),
-        pub_key.encryption_value(),
-        pub_key.modulus(),
+            .as_bytes().to_vec(),
+        &pub_key.encryption_value(),
+        &pub_key.modulus(),
     );
     input_buffer = serde_json::to_string(&enigma_buffer).unwrap();
     stream
@@ -58,8 +55,8 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
 fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     let mut buffer: [u8; MAX_PACKET_SIZE] = [0; MAX_PACKET_SIZE];
     let json_data: &str;
-    let cyphered_message: Vec<usize>;
-    let plain_message: Vec<usize>;
+    let cyphered_message: Vec<u8>;
+    let mut plain_message: Vec<u8>;
     let data_size: usize;
 
     data_size = stream
@@ -69,11 +66,12 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     cyphered_message = serde_json::from_str(json_data).unwrap();
     plain_message = enigma(
         &cyphered_message,
-        private_key.decryption_value(),
-        private_key.modulus(),
+        &private_key.decryption_value(),
+       & private_key.modulus(),
     );
-    print!(
-        "Peer: {}",
+    plain_message.pop();
+    println!(
+        "{}: [{}]", stream.peer_addr().unwrap().ip(),
         std::str::from_utf8(&plain_message.iter().map(|x| *x as u8).collect::<Vec<u8>>()).unwrap()
     );
 }
@@ -106,7 +104,6 @@ fn launch(stream: &mut TcpStream) {
         return;
     }
     let keys: ((PublicKey, PrivateKey), PublicKey) = keys.unwrap();
-    println!("handshake completed! keys {:?}", keys);
     loop {
         read_stream(stream, &keys.0 .1);
         send_input(stream, &keys.1);

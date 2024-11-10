@@ -1,5 +1,6 @@
 use std::net::TcpStream;
 
+use num_bigint::BigUint;
 use serde::Deserialize;
 
 use crate::{
@@ -42,7 +43,10 @@ pub fn read_client_hello(stream: &mut TcpStream) -> TunnelResult<[u8; CLIENT_MAS
 pub fn read_client_public_key(stream: &mut TcpStream) -> TunnelResult<PublicKey> {
     let mut de = serde_json::Deserializer::from_reader(stream);
     match SharingPubKeyRequest::deserialize(&mut de) {
-        Ok(buffer) => Ok(buffer.pub_key()),
+        Ok(buffer) => Ok(PublicKey::new(
+            &BigUint::from_bytes_be(&buffer.pub_key().0),
+            &BigUint::from_bytes_be(&buffer.pub_key().1),
+        )),
         Err(_) => Err(TunnelError::InvalidData),
     }
 }
@@ -55,8 +59,8 @@ pub fn read_client_public_key(stream: &mut TcpStream) -> TunnelResult<PublicKey>
 /// stream: **&mut TcpStream** - The stream to the client
 ///
 /// # Returns
-/// **TunnelResult<Vec<usize>>** - The cyphered password
-pub fn read_cyphered_password(stream: &mut TcpStream) -> TunnelResult<Vec<usize>> {
+/// **TunnelResult<Vec<u8>>** - The cyphered password
+pub fn read_cyphered_password(stream: &mut TcpStream) -> TunnelResult<Vec<u8>> {
     let mut de = serde_json::Deserializer::from_reader(stream);
     match KeysValidatedRequest::deserialize(&mut de) {
         Err(_) => Err(TunnelError::InvalidKeySize),

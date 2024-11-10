@@ -1,6 +1,6 @@
 use super::{private_keys::generate_private_key, public_keys::generate_public_key};
+use num_bigint::BigUint;
 use num_primes::Generator;
-use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 /// Public key used in the RSA algorithm
@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 /// - **modulus** - The modulus of the public key
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PublicKey {
-    encryption_value: usize,
-    modulus: usize,
+    encryption_value: Vec<u8>,
+    modulus: Vec<u8>,
 }
 
 /// Private key used in the RSA algorithm
@@ -25,8 +25,8 @@ pub struct PublicKey {
 /// - **modulus** - The modulus of the private key
 #[derive(Debug)]
 pub struct PrivateKey {
-    decryption_value: usize,
-    modulus: usize,
+    decryption_value: Vec<u8>,
+    modulus: Vec<u8>,
 }
 
 impl PrivateKey {
@@ -35,15 +35,15 @@ impl PrivateKey {
     /// This function will create a new private key
     ///
     /// # Arguments
-    /// decryption_value: **usize** - The value used to decrypt the data<br/>
-    /// modulus: **usize** - The modulus of the private key
+    /// decryption_value: **&BigUint** - The value used to decrypt the data<br/>
+    /// modulus: **&BigUint** - The modulus of the private key
     ///
     /// # Returns
     /// **PrivateKey** - The private key created
-    pub fn new(decryption_value: usize, modulus: usize) -> Self {
+    pub fn new(decryption_value: &BigUint, modulus: &BigUint) -> Self {
         return PrivateKey {
-            decryption_value,
-            modulus,
+            decryption_value: decryption_value.to_bytes_be(),
+            modulus: modulus.to_bytes_be(),
         };
     }
 
@@ -52,9 +52,9 @@ impl PrivateKey {
     /// This function will return the modulus of the private key
     ///
     /// # Returns
-    /// **usize** - The modulus of the private key
-    pub fn modulus(self: &Self) -> usize {
-        self.modulus
+    /// **BigUint** - The modulus of the private key
+    pub fn modulus(self: &Self) -> BigUint {
+        BigUint::from_bytes_be(&self.modulus)
     }
 
     /// Get the decryption value
@@ -62,9 +62,9 @@ impl PrivateKey {
     /// This function will return the decryption value of the private key
     ///
     /// # Returns
-    /// **usize** - The decryption value of the private key
-    pub fn decryption_value(self: &Self) -> usize {
-        self.decryption_value
+    /// **BigUint** - The decryption value of the private key
+    pub fn decryption_value(self: &Self) -> BigUint {
+        BigUint::from_bytes_be(&self.decryption_value)
     }
 }
 
@@ -74,15 +74,15 @@ impl PublicKey {
     /// This function will create a new public key
     ///
     /// # Arguments
-    /// encryption_value: **usize** - The value used to encrypt the data<br/>
-    /// modulus: **usize** - The modulus of the public key
+    /// encryption_value: **&BigUint** - The value used to encrypt the data<br/>
+    /// modulus: **&BigUint** - The modulus of the public key
     ///
     /// # Returns
     /// **PublicKey** - The public key created
-    pub fn new(encryption_value: usize, modulus: usize) -> Self {
+    pub fn new(encryption_value: &BigUint, modulus: &BigUint) -> Self {
         PublicKey {
-            encryption_value,
-            modulus,
+            encryption_value: encryption_value.to_bytes_be(),
+            modulus: modulus.to_bytes_be(),
         }
     }
 
@@ -91,9 +91,9 @@ impl PublicKey {
     /// This function will return the modulus of the public key
     ///
     /// # Returns
-    /// **usize** - The modulus of the public key
-    pub fn modulus(self: &Self) -> usize {
-        self.modulus
+    /// **BigUint** - The modulus of the public key
+    pub fn modulus(self: &Self) -> BigUint {
+        BigUint::from_bytes_be(&self.modulus)
     }
 
     /// Get the encryption value
@@ -101,9 +101,9 @@ impl PublicKey {
     /// This function will return the encryption value of the public key
     ///
     /// # Returns
-    /// **usize** - The encryption value of the public key
-    pub fn encryption_value(self: &Self) -> usize {
-        self.encryption_value
+    /// **BigUint** - The encryption value of the public key
+    pub fn encryption_value(self: &Self) -> BigUint {
+        BigUint::from_bytes_be(&self.encryption_value)
     }
 }
 
@@ -116,9 +116,9 @@ impl PublicKey {
 /// - **q** - The second prime number<br/>
 /// - **modulus** - The modulus of the base
 pub struct PrimeBase {
-    pub p: usize,
-    pub q: usize,
-    pub modulus: usize,
+    pub p: BigUint,
+    pub q: BigUint,
+    pub modulus: BigUint,
 }
 
 /// Generate a base for the RSA algorithm
@@ -128,13 +128,9 @@ pub struct PrimeBase {
 /// # Returns
 /// **PrimeBase** - The base generated
 fn generate_base() -> PrimeBase {
-    let p: usize = Generator::new_prime(8)
-        .to_usize()
-        .expect("Failed to format data in key creation");
-    let q: usize = Generator::new_prime(8)
-        .to_usize()
-        .expect("Failed to format data in key creation");
-    let modulus: usize = p * q;
+    let p: BigUint = BigUint::from_bytes_be(&Generator::new_prime(1024).to_bytes_be());
+    let q: BigUint = BigUint::from_bytes_be(&Generator::new_prime(1024).to_bytes_be());
+    let modulus: BigUint = &p * &q;
     PrimeBase { p, q, modulus }
 }
 
@@ -146,7 +142,7 @@ fn generate_base() -> PrimeBase {
 /// **(PublicKey, PrivateKey)** - The public and private key generated
 pub fn generate_keys() -> (PublicKey, PrivateKey) {
     let base: PrimeBase = generate_base();
-    let public_key: (PublicKey, usize) = generate_public_key(&base);
-    let private_key: PrivateKey = generate_private_key(&public_key.0, public_key.1, base.modulus);
+    let public_key: (PublicKey, BigUint) = generate_public_key(&base);
+    let private_key: PrivateKey = generate_private_key(&public_key.0, &public_key.1, &base.modulus);
     (public_key.0, private_key)
 }

@@ -56,20 +56,18 @@ pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey
     let client_hello: [u8; CLIENT_MASTER_KEY_SIZE] = send_hello(stream)?;
     let server_hello: [u8; SERVER_MASTER_KEY_SIZE] = read_server_hello(stream)?;
     send_public_key(stream, &keys.0);
-    let cyphered_server_key: Vec<usize> = read_server_cyphered_pub_key(stream)?;
-    let server_key: Vec<usize> = enigma(
+    let cyphered_server_key: Vec<u8> = read_server_cyphered_pub_key(stream)?;
+    let server_key: Vec<u8> = enigma(
         &cyphered_server_key,
-        keys.1.decryption_value(),
-        keys.1.modulus(),
+        &keys.1.decryption_value(),
+        &keys.1.modulus(),
     );
-    let server_key: Vec<u8> = server_key.iter().map(|&x| x as u8).collect();
     let server_key: PublicKey = serde_json::from_slice(&server_key).unwrap();
     let master_password: [u8; MASTER_KEY_SIZE] = [client_hello, server_hello].concat()
         [0..MASTER_KEY_SIZE]
         .try_into()
         .unwrap();
     send_cyphered_master_password(stream, &server_key, &master_password);
-
     match handshake_succeed(stream) {
         Ok(true) => Ok((keys, server_key)),
         Ok(false) => Err(crate::protocol::client::errors::TunnelError::HandshakeWentWrong),

@@ -1,5 +1,6 @@
+use num_bigint::BigUint;
 use num_integer::Integer;
-use num_traits::ToPrimitive;
+use num_traits::One;
 
 use super::keys::{PrimeBase, PublicKey};
 
@@ -11,9 +12,9 @@ use super::keys::{PrimeBase, PublicKey};
 /// base: **&PrimeBase** - The base to generate the totient from<br/>
 ///
 /// # Returns
-/// **usize** - The totient of the base
-fn generate_totient(base: &PrimeBase) -> usize {
-    return (base.p - 1) * (base.q - 1);
+/// **BigUint** - The totient of the base
+fn generate_totient(base: &PrimeBase) -> BigUint {
+    return (&base.p - BigUint::one()).lcm(&(&base.q - BigUint::one()));
 }
 
 /// Generate a public key
@@ -24,16 +25,16 @@ fn generate_totient(base: &PrimeBase) -> usize {
 /// base: **&PrimeBase** - The base to generate the public key from
 ///
 /// # Returns
-/// **(PublicKey, usize)** - The public key generated and the value of the totient of the base
-pub fn generate_public_key(base: &PrimeBase) -> (PublicKey, usize) {
-    let r: usize = generate_totient(base);
-    let mut e: usize = 2;
+/// **(PublicKey, BigUint)** - The public key generated and the value of the totient of the base
+pub fn generate_public_key(base: &PrimeBase) -> (PublicKey, BigUint) {
+    let r: BigUint = generate_totient(base);
+    let mut e: BigUint = BigUint::from(2_u32);
     while e < r {
-        if e.gcd(&r) == 1 {
+        if e.gcd(&r) == BigUint::one() {
             break;
         }
-        e += 1;
+        e += BigUint::one();
     }
-    let e: usize = e.to_usize().expect("Failed to format data in key creation");
-    return (PublicKey::new(e, base.modulus), r);
+    // let e = BigUint::from(65537_u32);
+    return (PublicKey::new(&e, &base.modulus), r);
 }

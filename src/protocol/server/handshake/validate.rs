@@ -25,7 +25,7 @@ use super::{
 ///
 /// # Arguments
 /// stream: **&mut TcpStream** - The stream to the client<br/>
-/// password_received: **Vec<usize>** - The password received from the client<br/>
+/// password_received: **Vec<u8>** - The password received from the client<br/>
 /// real_password: **&[u8; MASTER_KEY_SIZE]** - The real password to compare with<br/>
 /// private_key: **&PrivateKey** - The private key to decrypt the password received
 ///
@@ -33,14 +33,14 @@ use super::{
 /// **TunnelResult<bool>** - True if the handshake succeed, false otherwise or an error if the value received is unexpected
 fn validate_handshake(
     stream: &mut TcpStream,
-    password_received: Vec<usize>,
+    password_received: Vec<u8>,
     real_password: &[u8; MASTER_KEY_SIZE],
     private_key: &PrivateKey,
 ) -> TunnelResult<bool> {
     let plain_password: Vec<u8> = enigma(
         &password_received,
-        private_key.decryption_value(),
-        private_key.modulus(),
+        &private_key.decryption_value(),
+        &private_key.modulus(),
     )
     .iter()
     .map(|&x| x as u8)
@@ -76,7 +76,7 @@ pub fn handshake(stream: &mut TcpStream) -> TunnelResult<((PublicKey, PrivateKey
         .unwrap();
     let client_public_key: PublicKey = read_client_public_key(stream)?;
     send_crypted_public_key(stream, &keys.0, &client_public_key)?;
-    let received_master_password: Vec<usize> = read_cyphered_password(stream)?;
+    let received_master_password: Vec<u8> = read_cyphered_password(stream)?;
     let handshake_result: bool =
         validate_handshake(stream, received_master_password, &master_password, &keys.1)?;
     if handshake_result {

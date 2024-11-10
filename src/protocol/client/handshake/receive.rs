@@ -36,8 +36,8 @@ pub fn read_server_hello(stream: &mut TcpStream) -> TunnelResult<[u8; SERVER_MAS
 /// stream: **&mut TcpStream** - The stream to the server
 ///
 /// # Returns
-/// **TunnelResult<Vec<usize>>** - The cyphered public key received from the server
-pub fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> TunnelResult<Vec<usize>> {
+/// **TunnelResult<Vec<u8>>** - The cyphered public key received from the server
+pub fn read_server_cyphered_pub_key(stream: &mut TcpStream) -> TunnelResult<Vec<u8>> {
     let mut de = serde_json::Deserializer::from_reader(stream);
 
     match SharingCryptedPubKeyRequest::deserialize(&mut de) {
