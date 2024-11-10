@@ -1,14 +1,16 @@
 use std::{
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
-    thread,
 };
 
 use crate::{
     cypher::enigma,
     keys_generator::keys::{PrivateKey, PublicKey},
     protocol::{
-        server::{errors::TunnelResult, handshake::validate::handshake},
+        server::{
+            errors::{TunnelError, TunnelResult},
+            handshake::validate::handshake,
+        },
         shared::{
             constant::{MAX_CONNECTION_ATTEMPS, MAX_PACKET_SIZE},
             types::PacketType,
@@ -34,8 +36,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
         .read_line(&mut input_buffer)
         .expect("Error while reading standard input...");
     enigma_buffer = enigma(
-        &input_buffer
-            .as_bytes().to_vec(),
+        &input_buffer.as_bytes().to_vec(),
         &pub_key.encryption_value(),
         &pub_key.modulus(),
     );
@@ -52,7 +53,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
 /// # Arguments
 /// stream: **&mut TcpStream** - The stream to the client<br/>
 /// private_key: **&PrivateKey** - The private key to decrypt the message
-fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
+fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) -> TunnelResult<()> {
     let mut buffer: [u8; MAX_PACKET_SIZE] = [0; MAX_PACKET_SIZE];
     let json_data: &str;
     let cyphered_message: Vec<u8>;
@@ -63,17 +64,22 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
         .read(&mut buffer)
         .expect("Failed to read from client...");
     json_data = std::str::from_utf8(&buffer[0..data_size]).unwrap();
+    if data_size == 0 {
+        return Err(TunnelError::ClientDisconnected);
+    }
     cyphered_message = serde_json::from_str(json_data).unwrap();
     plain_message = enigma(
         &cyphered_message,
         &private_key.decryption_value(),
-       & private_key.modulus(),
+        &private_key.modulus(),
     );
     plain_message.pop();
     println!(
-        "{}: [{}]", stream.peer_addr().unwrap().ip(),
+        "{}: [{}]",
+        stream.peer_addr().unwrap().ip(),
         std::str::from_utf8(&plain_message.iter().map(|x| *x as u8).collect::<Vec<u8>>()).unwrap()
     );
+    Ok(())
 }
 
 /// Launch the server
@@ -105,8 +111,13 @@ fn launch(stream: &mut TcpStream) {
     }
     let keys: ((PublicKey, PrivateKey), PublicKey) = keys.unwrap();
     loop {
-        read_stream(stream, &keys.0 .1);
-        send_input(stream, &keys.1);
+        match read_stream(stream, &keys.0 .1) {
+            Ok(_) => send_input(stream, &keys.1),
+            Err(err) => {
+                println!("{:?}", err);
+                break;
+            }
+        }
     }
 }
 
@@ -129,8 +140,11 @@ pub fn start_server(ip: String, port: u16) -> () {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                thread::spawn(move || launch(&mut stream));
+                println!("===============START COMMUNICATION=================");
+                launch(&mut stream);
+                println!("===============END OF COMMUNICATION=================");
             }
+
             Err(e) => println!("Couldn't get client: {e:?}"),
         }
     }

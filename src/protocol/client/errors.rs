@@ -11,6 +11,8 @@ pub enum TunnelError {
     InvalidData,
     UnexpectedValue,
     HandshakeWentWrong,
+
+    ServerDisconnected,
 }
 
 /// Result type for the tunneling process.

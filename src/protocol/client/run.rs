@@ -6,7 +6,10 @@ use std::{
 use crate::{
     cypher::enigma,
     keys_generator::keys::{PrivateKey, PublicKey},
-    protocol::{client::handshake::validate::handshake, shared::constant::MAX_PACKET_SIZE},
+    protocol::{
+        client::{errors::TunnelError, handshake::validate::handshake},
+        shared::constant::MAX_PACKET_SIZE,
+    },
 };
 
 use super::errors::TunnelResult;
@@ -46,7 +49,7 @@ fn send_input(stream: &mut TcpStream, pub_key: &PublicKey) {
 /// # Arguments
 /// stream: **&mut TcpStream** - The stream to the server<br/>
 /// private_key: **&PrivateKey** - The private key used to decrypt the message
-fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
+fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) -> TunnelResult<()> {
     let mut buffer: [u8; MAX_PACKET_SIZE] = [0; MAX_PACKET_SIZE];
     let json_data: &str;
     let cyphered_message: Vec<u8>;
@@ -57,6 +60,9 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
         .read(&mut buffer)
         .expect("Failed to read from server...");
     json_data = std::str::from_utf8(&buffer[0..data_size]).unwrap();
+    if data_size == 0 {
+        return Err(TunnelError::ServerDisconnected);
+    }
     cyphered_message = serde_json::from_str(json_data).unwrap();
     plain_message = enigma(
         &cyphered_message,
@@ -65,9 +71,11 @@ fn read_stream(stream: &mut TcpStream, private_key: &PrivateKey) {
     );
     plain_message.pop();
     println!(
-        "{}: [{}]", stream.peer_addr().unwrap().ip(), 
+        "{}: [{}]",
+        stream.peer_addr().unwrap().ip(),
         std::str::from_utf8(&plain_message.iter().map(|x| *x as u8).collect::<Vec<u8>>()).unwrap()
     );
+    Ok(())
 }
 
 /// Initialize the communication with the handshake protocol
@@ -119,6 +127,12 @@ pub fn start_client(ip: String, port: u16) -> () {
     };
     loop {
         send_input(&mut stream, &keys.1);
-        read_stream(&mut stream, &keys.0 .1);
+        match read_stream(&mut stream, &keys.0 .1) {
+            Err(err) => {
+                println!("{:?}", err);
+                break;
+            }
+            Ok(_) => continue,
+        }
     }
 }
